@@ -4,9 +4,12 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Instruction.h"
 #include <string>
+#include <vector>
+#include <set>
 #include <unordered_map>
 using namespace llvm;
 using namespace std;
@@ -19,104 +22,85 @@ namespace {
 struct LivenessAnalysis : public FunctionPass {
     string func_name = "test";
     static char ID;
-    unordered_map<Value *,int> V_MAP;
-    unordered_map<string, int> OP_MAP;
     int CurrentID=1;
+    unordered_map<string,set<string> > UEVar;
+    unordered_map<string,set<string> > VarKill;
+    unordered_map<string,set<string> > LiveOut;
     LivenessAnalysis() : FunctionPass(ID) {}
 
-    bool runOnFunction(Function &F) override {
-	    
-        errs() << "LivenessAnalysis: " << F.getName() << "\n";
-        if (F.getName() != func_name) return false;
-
+    bool runOnFunction(Function &F) override 
+    {
+	    if (F.getName() != func_name) return false;
         for (auto& basic_block : F)
         {
+            
+            set<string> _UEVar;
+            set<string> _VarKill;
+            set<string> _LiveOut;
             for (auto& inst : basic_block)
             {
-                //errs() << inst << "\n";
-                if(inst.getOpcode() == Instruction::Load){
-                    errs() << formatv("{0,-40}", inst); 
-                    auto args1=inst.getOperand(0);
-                  
-                    int id= V_MAP[args1];
-                    errs() << "\t" <<id<<"="<<id<< "\n";
-                    V_MAP[&inst]=id;
-                }
-                if(inst.getOpcode() == Instruction::Store){
-                    errs() << formatv("{0,-40}", inst); 
-                    auto args1=inst.getOperand(0);
-                    auto args2=inst.getOperand(1);
-                    int id = 0;
-                    if(V_MAP.count(args1)==0)
-                    {                       
-                        V_MAP[args1]=CurrentID;
-                        V_MAP[args2]=CurrentID;
-                        errs() << "\t" <<CurrentID<<"="<<CurrentID<< "\n";
-                        CurrentID++;
-                    }
-                    else
-                    {
-                        id = V_MAP[args1];
-                        V_MAP[args2]=id;
-                        errs() << "\t" <<id<<"="<<id<< "\n";
-                    }
-                 
-                    //errs() << "This is Store"<<"\n";
-                }
-                if (inst.isBinaryOp())
+                if(inst.getOpcode() == Instruction::Load)
                 {
-                    errs() << formatv("{0,-40}", inst);
-                    string op;
-                    // errs() << "Op Code:" << inst.getOpcodeName()<<"\n";
-                    if(inst.getOpcode() == Instruction::Add){
-                        op ="+";
-                    }
-                    if(inst.getOpcode() == Instruction::Sub){
-                        op ="-";
-                    }
-                    if(inst.getOpcode() == Instruction::Mul){
-                        op = "*";
-                    }
-                    if(inst.getOpcode() == Instruction::SDiv){
-                        op = "/";
-                    }
-                    int v1;
-                    int v2;
-                    auto args1=inst.getOperand(0);
-                    auto args2=inst.getOperand(1);
-                    if(V_MAP.count(args1)==0)
-                    {
-                        V_MAP[args1]=CurrentID;
-                        v1 = CurrentID++;
-                    }   
-                    else    v1 = V_MAP[args1];
-                    if(V_MAP.count(args2)==0)
-                    {
-                        V_MAP[args2]=CurrentID;
-                        v2 = CurrentID ++;
-                    } 
-                    else   v2 = V_MAP[args2];
-                    string v = to_string(v1)+op+to_string(v2);
-                    if(OP_MAP.count(v)==0)
-                    {
-                        OP_MAP[v]=CurrentID;
-                        V_MAP[&inst]=CurrentID;
-                        errs()<<"\t"<<CurrentID<<"="<<v1<<op<<v2<< "\n";
-                        CurrentID++;
-                    }
-                    else
-                    {
-                        int temp = OP_MAP[v];
-                        V_MAP[&inst]=temp;
-                        errs()<<"\t"<<temp<<"="<<v1<<op<<v2<<"Redundant"<<"\n";
-                    }
-                        //errs() << "\t" <<  *(*it) << "\n";  
-                    
-                    // end if
+                    string value=inst.getOperand(0)->getName();
+                    if(!_VarKill.count(value))
+                        _UEVar.insert(value);
                 }
-                
+                else if(inst.getOpcode() == Instruction::Store)
+                {
+                    string value =inst.getOperand(1)->getName();
+                    _VarKill.insert(value);
+                }  
             } // end for inst
-        } // end for block
+            UEVar[basic_block.getName()]=_UEVar;
+            VarKill[basic_block.getName()]=_VarKill;
+            LiveOut[basic_block.getName()]=_LiveOut;
+        }
+        bool flag = true;
+        while(flag)
+        {
+            flag = false;
+            for (auto& basic_block : F)
+            {
+                string n = basic_block.getName();
+                set<string> _LiveOut;
+                set<string> x4;
+                for(BasicBlock *Succ : successors(&basic_block))
+                {
+                    string x = Succ->getName();
+                    set<string> x1 = LiveOut[x];
+                    set<string> x2 = VarKill[x];
+                    set<string> x3 = UEVar[x];
+                    set<string> r1;
+                    set<string> r2;
+                    set_difference(x1.begin(),x1.end(),x2.begin(),x2.end(),inserter(r1,r1.begin()));
+                    set_union(r1.begin(),r1.end(),x3.begin(),x3.end(),inserter(r2,r2.begin()));
+                    set_union(r2.begin(),r2.end(),x4.begin(),x4.end(),inserter(_LiveOut,_LiveOut.begin()));
+                }
+                if(LiveOut[n]!=_LiveOut)
+                {
+                    LiveOut[n]=_LiveOut;
+                    flag=true;
+                }
+            } // end for block
+        }
+        for (auto& basic_block : F)
+        {
+            errs()<<"-----"<<basic_block.getName()<<"-----"<<"\n";
+            errs()<<"UEVar: ";
+            for(auto i:UEVar[basic_block.getName()])
+                errs()<<i<<" ";
+            errs()<<"\n";
+
+            errs()<<"VarKill: ";
+            for(auto i:VarKill[basic_block.getName()])
+                errs()<<i<<" ";
+            errs()<<"\n";
+
+            errs()<<"LiveOut: ";
+            for(auto i:LiveOut[basic_block.getName()])
+                errs()<<i<<" ";
+            errs()<<"\n";
+        }
         return false;
     } // end runOnFunction
 }; // end of struct ValueNumbering
