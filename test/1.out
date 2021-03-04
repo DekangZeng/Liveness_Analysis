@@ -1,0 +1,16 @@
+----- entry -----
+UEVAR: b c 
+VARKILL: e 
+LIVEOUT: a b c e 
+----- if.then -----
+UEVAR: a 
+VARKILL: e 
+LIVEOUT: c e 
+----- if.else -----
+UEVAR: b c 
+VARKILL: a 
+LIVEOUT: c e 
+----- if.end -----
+UEVAR: c e 
+VARKILL: a 
+LIVEOUT: 
