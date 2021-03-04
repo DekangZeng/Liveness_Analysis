@@ -1,0 +1,4 @@
+/Users/zengdekang/Github/Liveness-Analysis/Pass/build/CMakeFiles/rebuild_cache.dir
+/Users/zengdekang/Github/Liveness-Analysis/Pass/build/CMakeFiles/edit_cache.dir
+/Users/zengdekang/Github/Liveness-Analysis/Pass/build/CMakeFiles/LLVMLivenessAnalysisPass.dir
+/Users/zengdekang/Github/Liveness-Analysis/Pass/build/CMakeFiles/intrinsics_gen.dir
