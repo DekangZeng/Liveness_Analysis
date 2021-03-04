@@ -1,0 +1,33 @@
+----- entry -----
+UEVAR: 
+VARKILL: a b c d e i  
+LIVEOUT: a b i e
+----- for.cond -----
+UEVAR: i
+VARKILL:  
+LIVEOUT: a b i e  
+----- for.body -----
+UEVAR: a b
+VARKILL: c
+LIVEOUT: a c i e
+----- while.con -----
+UEVAR: i e
+VARKILL: 
+LIVEOUT: a c i e
+----- while.body -----
+UEVAR: a i
+VARKILL: i
+LIVEOUT: a c i e
+----- while.end -----
+UEVAR: c a
+VARKILL: b
+LIVEOUT: a b i e
+----- for.inc -----
+UEVAR: i
+VARKILL: i 
+LIVEOUT: a b i e
+----- for.end -----
+UEVAR:  
+VARKILL:  
+LIVEOUT:
+
